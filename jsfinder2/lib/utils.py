@@ -75,7 +75,7 @@ def get_url(
     """
     try:
         headers = {"User-Agent": user_agent, "Cookie": cookie}
-        r = httpx.get(url, headers=headers)
+        r = httpx.get(url, headers=headers, verify=False)
         return r.text
     except:
         return ""
