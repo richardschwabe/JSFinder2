@@ -4,7 +4,7 @@ import argparse
 from bs4 import BeautifulSoup
 import tldextract
 
-from .utils import exctract_url, get_url, process_url_infos
+from .utils import exctract_url, get_url, process_url_infos, convert_arg_to_pathlib_path
 import jsfinder2.settings as settings
 
 
@@ -41,7 +41,6 @@ class JSFinder2:
     def setup_folders(self):
         self.debug("Checking for and maybe creating results folder in homedirectory")
         settings.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-        # Todo: Create a random name for the project?
 
     def maybe_print(self, msg):
         if self.args:
@@ -132,13 +131,23 @@ class JSFinder2:
             nargs="?",
             help="Specify the url to a JS file",
         )
+        action_group.add_argument(
+            "-f",
+            "--file",
+            metavar="LOCAL_URL_LIST_FILE",
+            action="store",
+            dest="local_file",
+            const="",
+            nargs="?",
+            help="Specify a local file with URLs",
+        )
 
-    def work_on_url(self):
-        self.debug(f"Working with: {self.config['url']}")
+    def work_on_url(self, url: str = ""):
+        self.debug(f"Working with: {url}")
         # get the url data
-        html_body = get_url(self.config["url"])
+        html_body = get_url(url)
         if not html_body:
-            msg = f"Cannot get HTML Body! for {self.config['url']}"
+            msg = f"Cannot get HTML Body! for {url}"
             raise Exception(msg)
         # parse in bs4
         soup = BeautifulSoup(html_body, "html.parser")
@@ -148,7 +157,7 @@ class JSFinder2:
         scripts_links = list()
         for html_script in html_scripts:
             script_src = html_script.get("src")
-            processed_url = process_url_infos(self.config["url"], script_src)
+            processed_url = process_url_infos(url, script_src)
             if not processed_url:
                 continue
 
@@ -197,37 +206,49 @@ class JSFinder2:
             ):
                 self.all_subdomains.append(full_subdomain)
 
-    def run(self):
-        self.setup_folders()
-        self.setup_args()
-        self.args, _ = self._parser.parse_known_args()
-        self.maybe_print("JSFinder2 Starting...")
-        self.debug(sys.argv)
-
+    def handle_url_case(self):
+        """Handles the case when the user only provides an url"""
         original_domain = ".".join(tldextract.extract(self.args.js_file_url)[1:])
         project_path = settings.RESULTS_DIR / original_domain
         project_path.mkdir(parents=True, exist_ok=True)
 
-        self.config = {
-            "url": self.args.js_file_url,
-            "cookie": self.args.cookie or "",
-            "user_agent": self.args.user_agent or "",
-            "output_files": {
-                "urls": self.args.output_file_urls or project_path / "urls.txt",
-                "subdomains": self.args.output_file_subdomains
-                or project_path / "subdomains.txt",
-            },
-        }
+        self.config.update(
+            {
+                "output_files": {
+                    "urls": self.args.output_file_urls or project_path / "urls.txt",
+                    "subdomains": self.args.output_file_subdomains
+                    or project_path / "subdomains.txt",
+                }
+            }
+        )
 
-        self.debug(self.config)
+        self.work_on_url(self.config["url"])
 
-        if self.config["url"]:
-            self.work_on_url()
-        else:
-            print("Exiting. You need to specify a url.Use --help for more info!")
+    def handle_file_case(self):
+        """Handles the case when a user provides a list of urls within a local file"""
+        file_path = convert_arg_to_pathlib_path(self.config["local_file"])
+        project_path = settings.RESULTS_DIR / file_path
+        if not file_path.exists():
+            print("File does not exist. Exiting.")
             return
 
-        # Write files
+        self.config.update(
+            {
+                "output_files": {
+                    "urls": self.args.output_file_urls or project_path / "urls.txt",
+                    "subdomains": self.args.output_file_subdomains
+                    or project_path / "subdomains.txt",
+                }
+            }
+        )
+
+        with open(file_path, mode="r") as urls_file:
+            for url in urls_file.readlines():
+                print(f"Going over next url: {url}")
+                self.work_on_url(url)
+
+    def write_output_files(self):
+        """Writes the files with all results"""
         with open(self.config["output_files"]["urls"], mode="w") as url_file:
             for url in self.all_urls:
                 self.maybe_print(url)
@@ -240,7 +261,12 @@ class JSFinder2:
                 self.maybe_print(subdomain)
                 subdomain_file.write(url + "\n")
 
-        # print summary
+    def output_summary(self):
+        """Prints out some statistics and file locations, as well as notifies the user that
+        the process has finished.
+
+        This should be the last method to call!
+        """
         print(f"Found {len(self.all_urls)} URLS")
         print(f"Found {len(self.all_subdomains)} Subdomains")
 
@@ -248,3 +274,33 @@ class JSFinder2:
         print(f"Subdomains list saved in {self.config['output_files']['subdomains']}")
 
         print("Finished.")
+
+    def run(self):
+        self.setup_args()
+        self.args, _ = self._parser.parse_known_args()
+        self.setup_folders()
+        self.maybe_print("JSFinder2 Starting...")
+        self.debug(sys.argv)
+
+        self.config = {
+            "url": self.args.js_file_url,
+            "local_file": self.args.local_file,
+            "cookie": self.args.cookie or "",
+            "user_agent": self.args.user_agent or "",
+        }
+
+        self.debug(self.config)
+
+        if self.config["url"]:
+            self.handle_url_case()
+        elif self.config["local_file"]:
+            self.handle_file_case()
+        else:
+            print(
+                "Exiting. You need to specify a url or file with urls. Use --help for more info!"
+            )
+            return
+
+        self.write_output_files()
+
+        self.output_summary()

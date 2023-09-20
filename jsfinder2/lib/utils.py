@@ -1,7 +1,16 @@
+import pathlib
 import re
 from urllib.parse import urlparse
 
 import httpx
+
+
+def convert_arg_to_pathlib_path(file_location: str = ""):
+    # convert to pathlib path
+
+    final_path = pathlib.Path(__file__) / file_location
+    print(final_path)
+    return final_path
 
 
 # Regular expression comes from https://github.com/GerbenJavado/LinkFinder
