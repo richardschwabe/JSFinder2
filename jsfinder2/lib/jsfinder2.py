@@ -18,7 +18,6 @@ class JSFinder2:
         "url": "",
         "cookie": "",
         "user_agent": "",
-        "deep": True,
         "output_files": {
             "urls": "",
             "subdomains": "",
@@ -179,8 +178,6 @@ class JSFinder2:
         # extract subdomains
         self._analyse_subdomains()
 
-        return sorted(set(exctract_url(get_url(self.config["url"])))) or None
-
     def _add_url_result(self, url):
         domain = ".".join(tldextract.extract(url)[1:])
         if domain in self.blacklisted_domains:
@@ -214,7 +211,6 @@ class JSFinder2:
             "url": self.args.js_file_url,
             "cookie": self.args.cookie or "",
             "user_agent": self.args.user_agent or "",
-            "deep": self.args.deep,
             "output_files": {
                 "urls": self.args.output_file_urls or settings.HOME_DIR / "urls.txt",
                 "subdomains": self.args.output_file_subdomains
