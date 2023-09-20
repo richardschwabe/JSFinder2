@@ -33,7 +33,7 @@ class JSFinder2:
         "schema.org",
     ]
 
-    blacklisted_words = ["jquery.js", "node_modules"]
+    blacklisted_words = ["jquery", "node_modules"]
 
     all_urls = list()
     all_subdomains = list()
@@ -230,16 +230,21 @@ class JSFinder2:
         # Write files
         with open(self.config["output_files"]["urls"], mode="w") as url_file:
             for url in self.all_urls:
-                print(url)
+                self.maybe_print(url)
                 url_file.write(url + "\n")
 
         with open(
             self.config["output_files"]["subdomains"], mode="w"
         ) as subdomain_file:
             for subdomain in self.all_subdomains:
-                print(subdomain)
+                self.maybe_print(subdomain)
                 subdomain_file.write(url + "\n")
 
         # print summary
-        print(f"Found {len(self.all_urls)} URLS:")
-        print(f"Found {len(self.all_subdomains)} Subdomains:")
+        print(f"Found {len(self.all_urls)} URLS")
+        print(f"Found {len(self.all_subdomains)} Subdomains")
+
+        print(f"URLs list saved in {self.config['output_files']['urls']}")
+        print(f"Subdomains list saved in {self.config['output_files']['subdomains']}")
+
+        print("Finished.")
