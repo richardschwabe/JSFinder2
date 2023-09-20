@@ -215,9 +215,7 @@ class JSFinder2:
             ):
                 self.all_subdomains.append(full_subdomain)
                 if self.config["deep"]:
-                    self.maybe_print(
-                        f"Crawling for js files on subdomain: {full_subdomain}"
-                    )
+                    print(f"Crawling for js files on subdomain: {full_subdomain}")
                     self.work_on_url(f"http://{full_subdomain}")
 
     def _create_results_folder_for_domain(self, url):

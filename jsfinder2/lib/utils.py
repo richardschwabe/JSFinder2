@@ -83,7 +83,7 @@ def get_url(
 
         return r.text
     except Exception as e:
-        print(e)
+        print(f"Could not reach {url}")
         return ""
 
 
