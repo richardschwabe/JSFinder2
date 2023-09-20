@@ -1,5 +1,4 @@
 import pathlib
-import sys
 import argparse
 
 from bs4 import BeautifulSoup
@@ -16,6 +15,7 @@ class JSFinder2:
         "url": "",
         "cookie": "",
         "user_agent": "",
+        "deep": False,
         "output_files": {
             "urls": "",
             "subdomains": "",
@@ -32,6 +32,9 @@ class JSFinder2:
         "redditstatic.com",
         "reddit.com",
         "schema.org",
+        "unpkg.com",
+        "gitter.im",
+        "cookielaw.org",
     ]
 
     blacklisted_words = ["jquery", "node_modules"]
@@ -52,6 +55,9 @@ class JSFinder2:
         if self.args:
             if self.args.debug:
                 print(f"[DEBUG] {msg}")
+
+    def warning(self, msg):
+        print(f"[WARN] {msg}")
 
     def setup_args(self):
         main_description = """
@@ -149,7 +155,8 @@ class JSFinder2:
         html_body = get_url(original_url)
         if not html_body:
             msg = f"Cannot get HTML Body! for {original_url}"
-            raise Exception(msg)
+            self.warning(msg)
+            return
         # parse in bs4
         soup = BeautifulSoup(html_body, "html.parser")
         # find all the script tags
@@ -201,11 +208,17 @@ class JSFinder2:
             full_subdomain = ".".join(url_data)
             if full_subdomain[:1] == ".":
                 full_subdomain = full_subdomain[1:]
+
             if (
                 full_subdomain not in self.all_subdomains
-                and original_domain in full_subdomain
+                and original_domain == ".".join(url_data[1:])
             ):
                 self.all_subdomains.append(full_subdomain)
+                if self.config["deep"]:
+                    self.maybe_print(
+                        f"Crawling for js files on subdomain: {full_subdomain}"
+                    )
+                    self.work_on_url(f"http://{full_subdomain}")
 
     def _create_results_folder_for_domain(self, url):
         original_domain = ".".join(tldextract.extract(url)[1:])
@@ -283,13 +296,13 @@ class JSFinder2:
         self.args, _ = self._parser.parse_known_args()
         self.setup_folders()
         self.maybe_print("JSFinder2 Starting...")
-        self.debug(sys.argv)
 
         self.config = {
             "url": self.args.js_file_url,
             "local_file": self.args.local_file,
             "cookie": self.args.cookie or "",
             "user_agent": self.args.user_agent or "",
+            "deep": self.args.deep,
         }
 
         self.debug(self.config)

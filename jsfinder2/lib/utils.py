@@ -75,8 +75,12 @@ def get_url(
         str: body of url
     """
     try:
-        headers = {"User-Agent": user_agent, "Cookie": cookie}
-        r = httpx.get(url, headers=headers)
+        headers = {"User-Agent": user_agent}
+        if cookie:
+            headers.update({"Cookie": cookie})
+
+        r = httpx.get(url, headers=headers, timeout=10.0, follow_redirects=True)
+
         return r.text
     except Exception as e:
         print(e)
