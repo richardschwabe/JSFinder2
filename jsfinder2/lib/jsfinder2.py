@@ -1,6 +1,3 @@
-# Based on https://github.com/Threezh1/JSFinder/blob/master/JSFinder.py
-
-import re
 import sys
 import argparse
 
