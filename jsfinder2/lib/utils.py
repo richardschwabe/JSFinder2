@@ -35,7 +35,7 @@ def exctract_url(javascript_code: str):
 
     |
 
-    ([a-zA-Z0-9_\-]{1,}                 # filename
+    ([a-zA-Z0-9_\-.]{1,}                 # filename
     \.(?:php|asp|aspx|jsp|json|
          action|html|js|txt|xml)        # . + extension
     (?:[\?|#][^"|']{0,}|))              # ? or # mark with parameters
