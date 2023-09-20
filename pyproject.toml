@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "JSFinder2"
-version = "0.1"
+version = "0.2"
 authors = [{ name = "Richard Schwabe" }]
 maintainers = [{ name = 'Richard Schwabe', email = 'hello@richardschwabe.de' }]
 description = "JSFinder2 can be used to find urls and subdomains in JS files."
@@ -38,12 +38,12 @@ classifiers = [
 ]
 
 [project.scripts]
-reptor = 'jsfinder2.__main__:run'
+jsfinder2 = 'jsfinder2.__main__:run'
 
 [project.urls]
 "Homepage" = "https://github.com/richardschwabe/JSFinder2/blob/main/README.md"
 "Documentation" = "https://github.com/richardschwabe/JSFinder2/blob/main/README.md"
-"Bug Tracker" = "https://github.com/richardschwabe/JSFinder2r/issues"
+"Bug Tracker" = "https://github.com/richardschwabe/JSFinder2/issues"
 "Source" = "https://github.com/richardschwabe/JSFinder2"
 
 [tool.setuptools.package-data]
