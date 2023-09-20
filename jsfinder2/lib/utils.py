@@ -45,6 +45,7 @@ def exctract_url(javascript_code: str):
   (?:"|')                               # End newline delimiter
 
 """
+    javascript_code = javascript_code.replace(";", ";\r\n").replace(",", ",\r\n")
     pattern = re.compile(regex_str, re.VERBOSE)
     result = re.finditer(pattern, javascript_code)
     if result == None:

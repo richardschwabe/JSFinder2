@@ -37,6 +37,8 @@ class JSFinder2:
         "schema.org",
     ]
 
+    blacklisted_words = ["jquery.js", "node_modules"]
+
     all_urls = list()
     all_subdomains = list()
 
@@ -152,6 +154,15 @@ class JSFinder2:
             script_src = html_script.get("src")
             processed_url = process_url_infos(self.config["url"], script_src)
             if not processed_url:
+                continue
+
+            # check if we have some useless urls, like jquery.js or node_module reference
+            ignore = False
+            for blacklist_item in self.blacklisted_words:
+                if blacklist_item in processed_url:
+                    ignore = True
+                    break
+            if ignore:
                 continue
 
             if processed_url not in self.all_urls:
