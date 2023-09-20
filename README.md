@@ -10,6 +10,7 @@ Keep in mind there are lots of false positives in the URL. However, the subdomai
 
 [] create a subfolder for each domain
 [] add option to load urls from file
+[] support flag that url is a js file
 [] threading ?
 [] json output file ?
 
