@@ -204,14 +204,18 @@ class JSFinder2:
         self.maybe_print("JSFinder2 Starting...")
         self.debug(sys.argv)
 
+        original_domain = ".".join(tldextract.extract(self.args.js_file_url)[1:])
+        project_path = settings.RESULTS_DIR / original_domain
+        project_path.mkdir(parents=True, exist_ok=True)
+
         self.config = {
             "url": self.args.js_file_url,
             "cookie": self.args.cookie or "",
             "user_agent": self.args.user_agent or "",
             "output_files": {
-                "urls": self.args.output_file_urls or settings.HOME_DIR / "urls.txt",
+                "urls": self.args.output_file_urls or project_path / "urls.txt",
                 "subdomains": self.args.output_file_subdomains
-                or settings.HOME_DIR / "subdomains.txt",
+                or project_path / "subdomains.txt",
             },
         }
 
