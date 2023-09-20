@@ -5,6 +5,7 @@ import sys
 import argparse
 
 from bs4 import BeautifulSoup
+import tldextract
 
 from .utils import exctract_url, get_url, process_url_infos
 import jsfinder2.settings as settings
@@ -17,13 +18,27 @@ class JSFinder2:
         "url": "",
         "cookie": "",
         "user_agent": "",
-        "local_file": "",
         "deep": True,
         "output_files": {
             "urls": "",
             "subdomains": "",
         },
     }
+
+    blacklisted_domains = [
+        "twitter.com",
+        "youtube.com",
+        "pinterest.com",
+        "facebook.com",
+        "w3.org",
+        "vimeo.com",
+        "redditstatic.com",
+        "reddit.com",
+        "schema.org",
+    ]
+
+    all_urls = list()
+    all_subdomains = list()
 
     def setup_folders(self):
         self.debug("Checking for and maybe creating results folder in homedirectory")
@@ -43,7 +58,6 @@ class JSFinder2:
     def setup_args(self):
         main_description = """
         Examples:
-            jsfinder2 -f local_js_file.js
             jsfinder2 -u https://www.example.com/js/main.js
 """
         self._parser = argparse.ArgumentParser(
@@ -111,16 +125,6 @@ class JSFinder2:
         action_group = self._parser.add_mutually_exclusive_group()
         action_group.title = "action_group"
         action_group.add_argument(
-            "-f",
-            "--file",
-            metavar="LOCAL_JS_FILE_PATH",
-            action="store",
-            dest="js_file_path",
-            const="",
-            nargs="?",
-            help="Specify the local path to a JS file",
-        )
-        action_group.add_argument(
             "-u",
             "--url",
             metavar="REMOTE_JS_FILE_URL",
@@ -133,9 +137,60 @@ class JSFinder2:
 
     def work_on_url(self):
         self.debug(f"Working with: {self.config['url']}")
+        # get the url data
+        html_body = get_url(self.config["url"])
+        if not html_body:
+            msg = f"Cannot get HTML Body! for {self.config['url']}"
+            raise Exception(msg)
+        # parse in bs4
+        soup = BeautifulSoup(html_body, "html.parser")
+        # find all the script tags
+        html_scripts = soup.findAll("script")
+        # parse all the src attributes
+        scripts_links = list()
+        for html_script in html_scripts:
+            script_src = html_script.get("src")
+            processed_url = process_url_infos(self.config["url"], script_src)
+            if not processed_url:
+                continue
 
-    def work_on_local_file(self):
-        self.debug(f"Working with: {self.config['local_file']}")
+            if processed_url not in self.all_urls:
+                self._add_url_result(processed_url)
+                scripts_links.append(processed_url)
+
+        for script_url in scripts_links:
+            temporary_urls = exctract_url(get_url(script_url))
+            if not temporary_urls:
+                continue
+            for url in temporary_urls:
+                self._add_url_result(process_url_infos(script_url, url))
+
+        # extract subdomains
+        self._analyse_subdomains()
+
+        return sorted(set(exctract_url(get_url(self.config["url"])))) or None
+
+    def _add_url_result(self, url):
+        domain = ".".join(tldextract.extract(url)[1:])
+        if domain in self.blacklisted_domains:
+            return
+
+        if url not in self.all_urls:
+            self.all_urls.append(url)
+
+    def _analyse_subdomains(self):
+        """Goes over the added urls and finds subdomains"""
+        original_domain = ".".join(tldextract.extract(self.config["url"])[1:])
+        for url in self.all_urls:
+            url_data = tldextract.extract(url)
+            full_subdomain = ".".join(url_data)
+            if full_subdomain[:1] == ".":
+                full_subdomain = full_subdomain[1:]
+            if (
+                full_subdomain not in self.all_subdomains
+                and original_domain in full_subdomain
+            ):
+                self.all_subdomains.append(full_subdomain)
 
     def run(self):
         self.setup_folders()
@@ -148,7 +203,6 @@ class JSFinder2:
             "url": self.args.js_file_url,
             "cookie": self.args.cookie or "",
             "user_agent": self.args.user_agent or "",
-            "local_file": self.args.js_file_path,
             "deep": self.args.deep,
             "output_files": {
                 "urls": self.args.output_file_urls or settings.HOME_DIR / "urls.txt",
@@ -161,10 +215,23 @@ class JSFinder2:
 
         if self.config["url"]:
             self.work_on_url()
-        elif self.config["local_file"]:
-            self.work_on_local_file()
         else:
-            print(
-                "Exiting. You need to specify either a url or local file path. Use --help for more info!"
-            )
+            print("Exiting. You need to specify a url.Use --help for more info!")
             return
+
+        # Write files
+        with open(self.config["output_files"]["urls"], mode="w") as url_file:
+            for url in self.all_urls:
+                print(url)
+                url_file.write(url + "\n")
+
+        with open(
+            self.config["output_files"]["subdomains"], mode="w"
+        ) as subdomain_file:
+            for subdomain in self.all_subdomains:
+                print(subdomain)
+                subdomain_file.write(url + "\n")
+
+        # print summary
+        print(f"Found {len(self.all_urls)} URLS:")
+        print(f"Found {len(self.all_subdomains)} Subdomains:")

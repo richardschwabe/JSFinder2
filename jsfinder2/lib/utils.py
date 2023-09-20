@@ -6,30 +6,46 @@ import httpx
 
 # Regular expression comes from https://github.com/GerbenJavado/LinkFinder
 def exctract_url(javascript_code: str):
-    pattern_raw = r"""
-	  (?:"|')                               # Start newline delimiter
-	  (
-	    ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
-	    [^"'/]{1,}\.                        # Match a domainname (any character + dot)
-	    [a-zA-Z]{2,}[^"']{0,})              # The domainextension and/or path
-	    |
-	    ((?:/|\.\./|\./)                    # Start with /,../,./
-	    [^"'><,;| *()(%%$^/\\\[\]]          # Next character can't be...
-	    [^"'><,;|()]{1,})                   # Rest of the characters can't be
-	    |
-	    ([a-zA-Z0-9_\-/]{1,}/               # Relative endpoint with /
-	    [a-zA-Z0-9_\-/]{1,}                 # Resource name
-	    \.(?:[a-zA-Z]{1,4}|action)          # Rest + extension (length 1-4 or action)
-	    (?:[\?|/][^"|']{0,}|))              # ? mark with parameters
-	    |
-	    ([a-zA-Z0-9_\-]{1,}                 # filename
-	    \.(?:php|asp|aspx|jsp|json|
-	         action|html|js|txt|xml)             # . + extension
-	    (?:\?[^"|']{0,}|))                  # ? mark with parameters
-	  )
-	  (?:"|')                               # End newline delimiter
-	"""
-    pattern = re.compile(pattern_raw, re.VERBOSE)
+    regex_str = r"""
+  (?:"|')                               # Start newline delimiter
+
+  (
+    ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
+    [^"'/]{1,}\.                        # Match a domainname (any character + dot)
+    [a-zA-Z]{2,}[^"']{0,})              # The domainextension and/or path
+
+    |
+
+    ((?:/|\.\./|\./)                    # Start with /,../,./
+    [^"'><,;| *()(%%$^/\\\[\]]          # Next character can't be...
+    [^"'><,;|()]{1,})                   # Rest of the characters can't be
+
+    |
+
+    ([a-zA-Z0-9_\-/]{1,}/               # Relative endpoint with /
+    [a-zA-Z0-9_\-/]{1,}                 # Resource name
+    \.(?:[a-zA-Z]{1,4}|action)          # Rest + extension (length 1-4 or action)
+    (?:[\?|#][^"|']{0,}|))              # ? or # mark with parameters
+
+    |
+
+    ([a-zA-Z0-9_\-/]{1,}/               # REST API (no extension) with /
+    [a-zA-Z0-9_\-/]{3,}                 # Proper REST endpoints usually have 3+ chars
+    (?:[\?|#][^"|']{0,}|))              # ? or # mark with parameters
+
+    |
+
+    ([a-zA-Z0-9_\-]{1,}                 # filename
+    \.(?:php|asp|aspx|jsp|json|
+         action|html|js|txt|xml)        # . + extension
+    (?:[\?|#][^"|']{0,}|))              # ? or # mark with parameters
+
+  )
+
+  (?:"|')                               # End newline delimiter
+
+"""
+    pattern = re.compile(regex_str, re.VERBOSE)
     result = re.finditer(pattern, javascript_code)
     if result == None:
         return None
@@ -78,12 +94,18 @@ def process_url_infos(original_url: str, found_url: str) -> str:
 
     url_data = urlparse(original_url)
 
-    protocol = url_data.scheme
     network_location = url_data.netloc
+    protocol = url_data.scheme
+    if not found_url:
+        return ""
 
     if found_url[:2] == "//":
         result = f"{protocol}:{found_url}"
     elif found_url[:4] == "http":
+        result = found_url
+    elif found_url[:2] == "ws":
+        result = found_url
+    elif found_url[:3] == "ftp":
         result = found_url
     elif found_url[:2] != "//" and found_url not in blacklisted:
         if found_url[:1] == "/":
