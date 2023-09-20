@@ -1,10 +1,11 @@
+import pathlib
 import sys
 import argparse
 
 from bs4 import BeautifulSoup
 import tldextract
 
-from .utils import exctract_url, get_url, process_url_infos, convert_arg_to_pathlib_path
+from .utils import exctract_url, get_url, process_url_infos
 import jsfinder2.settings as settings
 
 
@@ -142,12 +143,12 @@ class JSFinder2:
             help="Specify a local file with URLs",
         )
 
-    def work_on_url(self, url: str = ""):
-        self.debug(f"Working with: {url}")
+    def work_on_url(self, original_url: str = ""):
+        self.debug(f"Working with: {original_url}")
         # get the url data
-        html_body = get_url(url)
+        html_body = get_url(original_url)
         if not html_body:
-            msg = f"Cannot get HTML Body! for {url}"
+            msg = f"Cannot get HTML Body! for {original_url}"
             raise Exception(msg)
         # parse in bs4
         soup = BeautifulSoup(html_body, "html.parser")
@@ -157,7 +158,7 @@ class JSFinder2:
         scripts_links = list()
         for html_script in html_scripts:
             script_src = html_script.get("src")
-            processed_url = process_url_infos(url, script_src)
+            processed_url = process_url_infos(original_url, script_src)
             if not processed_url:
                 continue
 
@@ -182,7 +183,7 @@ class JSFinder2:
                 self._add_url_result(process_url_infos(script_url, url))
 
         # extract subdomains
-        self._analyse_subdomains()
+        self._analyse_subdomains(original_url)
 
     def _add_url_result(self, url):
         domain = ".".join(tldextract.extract(url)[1:])
@@ -192,9 +193,9 @@ class JSFinder2:
         if url not in self.all_urls:
             self.all_urls.append(url)
 
-    def _analyse_subdomains(self):
+    def _analyse_subdomains(self, original_url: str):
         """Goes over the added urls and finds subdomains"""
-        original_domain = ".".join(tldextract.extract(self.config["url"])[1:])
+        original_domain = ".".join(tldextract.extract(original_url)[1:])
         for url in self.all_urls:
             url_data = tldextract.extract(url)
             full_subdomain = ".".join(url_data)
@@ -206,9 +207,8 @@ class JSFinder2:
             ):
                 self.all_subdomains.append(full_subdomain)
 
-    def handle_url_case(self):
-        """Handles the case when the user only provides an url"""
-        original_domain = ".".join(tldextract.extract(self.args.js_file_url)[1:])
+    def _create_results_folder_for_domain(self, url):
+        original_domain = ".".join(tldextract.extract(url)[1:])
         project_path = settings.RESULTS_DIR / original_domain
         project_path.mkdir(parents=True, exist_ok=True)
 
@@ -222,40 +222,44 @@ class JSFinder2:
             }
         )
 
+    def handle_url_case(self):
+        """Handles the case when the user only provides an url"""
+        self._create_results_folder_for_domain(self.args.js_file_url)
         self.work_on_url(self.config["url"])
+
+        self.write_output_files()
+
+        self.output_summary()
 
     def handle_file_case(self):
         """Handles the case when a user provides a list of urls within a local file"""
-        file_path = convert_arg_to_pathlib_path(self.config["local_file"])
-        project_path = settings.RESULTS_DIR / file_path
+        file_path = pathlib.Path(self.config["local_file"])
+
         if not file_path.exists():
             print("File does not exist. Exiting.")
             return
 
-        self.config.update(
-            {
-                "output_files": {
-                    "urls": self.args.output_file_urls or project_path / "urls.txt",
-                    "subdomains": self.args.output_file_subdomains
-                    or project_path / "subdomains.txt",
-                }
-            }
-        )
-
-        with open(file_path, mode="r") as urls_file:
+        with open(file_path, mode="r", encoding="utf-8") as urls_file:
             for url in urls_file.readlines():
+                url = url.strip()
                 print(f"Going over next url: {url}")
+                self._create_results_folder_for_domain(url)
                 self.work_on_url(url)
+
+                self.write_output_files()
+                self.output_summary()
 
     def write_output_files(self):
         """Writes the files with all results"""
-        with open(self.config["output_files"]["urls"], mode="w") as url_file:
+        with open(
+            self.config["output_files"]["urls"], mode="w", encoding="utf-8"
+        ) as url_file:
             for url in self.all_urls:
                 self.maybe_print(url)
                 url_file.write(url + "\n")
 
         with open(
-            self.config["output_files"]["subdomains"], mode="w"
+            self.config["output_files"]["subdomains"], mode="w", encoding="utf-8"
         ) as subdomain_file:
             for subdomain in self.all_subdomains:
                 self.maybe_print(subdomain)
@@ -264,16 +268,15 @@ class JSFinder2:
     def output_summary(self):
         """Prints out some statistics and file locations, as well as notifies the user that
         the process has finished.
-
-        This should be the last method to call!
         """
         print(f"Found {len(self.all_urls)} URLS")
         print(f"Found {len(self.all_subdomains)} Subdomains")
 
         print(f"URLs list saved in {self.config['output_files']['urls']}")
         print(f"Subdomains list saved in {self.config['output_files']['subdomains']}")
-
-        print("Finished.")
+        print(
+            "=========================================================================="
+        )
 
     def run(self):
         self.setup_args()
@@ -300,7 +303,4 @@ class JSFinder2:
                 "Exiting. You need to specify a url or file with urls. Use --help for more info!"
             )
             return
-
-        self.write_output_files()
-
-        self.output_summary()
+        print("Finished.")

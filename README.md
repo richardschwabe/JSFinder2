@@ -9,7 +9,7 @@ Keep in mind there are lots of false positives in the URL. However, the subdomai
 # Todo
 
 [x] create a subfolder for each domain
-[] add option to load urls from file
+[x] add option to load urls from file
 [] support flag that url is a js file
 [] crawl subdomains for more js files
 [] threading ?

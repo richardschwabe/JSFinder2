@@ -5,14 +5,6 @@ from urllib.parse import urlparse
 import httpx
 
 
-def convert_arg_to_pathlib_path(file_location: str = ""):
-    # convert to pathlib path
-
-    final_path = pathlib.Path(__file__) / file_location
-    print(final_path)
-    return final_path
-
-
 # Regular expression comes from https://github.com/GerbenJavado/LinkFinder
 def exctract_url(javascript_code: str):
     regex_str = r"""
@@ -84,9 +76,10 @@ def get_url(
     """
     try:
         headers = {"User-Agent": user_agent, "Cookie": cookie}
-        r = httpx.get(url, headers=headers, verify=False)
+        r = httpx.get(url, headers=headers)
         return r.text
-    except:
+    except Exception as e:
+        print(e)
         return ""
 
 
